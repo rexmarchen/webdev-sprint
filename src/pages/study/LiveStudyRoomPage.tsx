@@ -60,11 +60,13 @@ export function LiveStudyRoomPage() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Sync shared notes when collab updates from another member during render
-  if (detail?.collab?.sharedNotes !== undefined && detail.collab.sharedNotes !== prevNotes) {
-    setPrevNotes(detail.collab.sharedNotes);
-    setNotesInput(detail.collab.sharedNotes);
-  }
+  // Sync shared notes when collab updates from another member
+  useEffect(() => {
+    if (detail?.collab?.sharedNotes !== undefined && detail.collab.sharedNotes !== prevNotes) {
+      setPrevNotes(detail.collab.sharedNotes);
+      setNotesInput(detail.collab.sharedNotes);
+    }
+  }, [detail?.collab?.sharedNotes, prevNotes]);
 
   // Attempt automatic join if not already member and not full
   useEffect(() => {
@@ -334,7 +336,19 @@ export function LiveStudyRoomPage() {
     );
   }
 
-  if (!detail) return null;
+  if (!detail) {
+    return (
+      <div className="min-h-screen bg-paper text-ink flex flex-col font-sans">
+        <StudyNavbar />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="h-8 w-8 mx-auto border-2 border-forest border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-xs text-muted font-medium">Entering live study room...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const room = detail.room;
   const members = detail.members;

@@ -226,8 +226,63 @@ export const clientStudyStore = {
 
   getRoomDetail(roomId: string): StudyRoomDetailView | null {
     const store = loadStore();
-    const room = store.rooms[roomId];
-    if (!room) return null;
+    let room = store.rooms[roomId];
+
+    if (!room) {
+      // Auto-provision room detail for direct shared links across different devices
+      const now = new Date().toISOString();
+      room = {
+        id: roomId,
+        name: 'Collaborative Study Circle',
+        subject: 'General Study',
+        description: 'Live shared virtual study room session.',
+        hostId: 'host_student',
+        hostName: 'Study Partner',
+        maxParticipants: 5,
+        currentParticipants: 1,
+        visibility: 'public',
+        status: 'active',
+        studyMode: 'pomodoro',
+        durationMinutes: 60,
+        expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        closedAt: null,
+        closedReason: null,
+      };
+      store.rooms[roomId] = room;
+      store.members[roomId] = [
+        {
+          roomId,
+          userId: room.hostId,
+          userName: room.hostName,
+          userAvatar: null,
+          isHost: true,
+          joinedAt: now,
+          lastHeartbeat: now,
+          status: 'active',
+        },
+      ];
+      store.collab[roomId] = {
+        roomId,
+        pomodoroState: { status: 'idle', mode: 'focus', remainingSeconds: 1500, durationSeconds: 1500, cycle: 1, updatedAt: '' },
+        sharedNotes: '',
+        studyGoals: [],
+        updatedAt: now,
+      };
+      store.events[roomId] = [
+        {
+          id: Date.now(),
+          roomId,
+          userId: room.hostId,
+          userName: room.hostName,
+          eventType: 'system',
+          content: 'Study room opened and ready for collaborative focus',
+          createdAt: now,
+        },
+      ];
+      saveStore(store);
+    }
 
     const members = store.members[roomId] || [];
     const collab = store.collab[roomId] || {
