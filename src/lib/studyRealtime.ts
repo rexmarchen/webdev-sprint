@@ -12,6 +12,7 @@ import type {
 } from '@shared/types';
 import { api } from './api';
 import { useStudentProfile } from './studentSession';
+import { clientStudyStore } from './clientStudyStore';
 
 // Base API URL
 const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
@@ -100,9 +101,30 @@ export function useStudyRoomsDiscovery(options: {
 
     connect();
 
+    const unsubClient = clientStudyStore.subscribe((msg) => {
+      if (msg.type === 'room_update' && msg.room) {
+        queryClient.setQueryData<StudyRoom[]>(queryKey, (prev) => {
+          const list = prev || [];
+          const updatedRoom = msg.room!;
+          const index = list.findIndex((r) => r.id === updatedRoom.id);
+          if (index >= 0) {
+            const next = [...list];
+            next[index] = updatedRoom;
+            return next;
+          }
+          return [updatedRoom, ...list];
+        });
+      } else if (msg.type === 'room_closed' && msg.roomId) {
+        queryClient.setQueryData<StudyRoom[]>(queryKey, (prev) =>
+          (prev || []).filter((r) => r.id !== msg.roomId),
+        );
+      }
+    });
+
     return () => {
       clearTimeout(reconnectTimeout);
       es?.close();
+      unsubClient();
     };
   }, [queryClient, queryKey]);
 
@@ -239,9 +261,49 @@ export function useLiveStudyRoom(roomId: string) {
 
     connect();
 
+    const unsubClient = clientStudyStore.subscribe((msg) => {
+      if (msg.roomId && msg.roomId !== roomId) return;
+      if (msg.type === 'member_joined' && msg.member) {
+        queryClient.setQueryData<StudyRoomDetailView>(['study-room', roomId], (prev) => {
+          if (!prev) return prev;
+          const newMember = msg.member!;
+          const updatedRoom = msg.room || prev.room;
+          const existing = prev.members.some((m) => m.userId === newMember.userId);
+          const nextMembers = existing
+            ? prev.members.map((m) => (m.userId === newMember.userId ? newMember : m))
+            : [...prev.members, newMember];
+          return { ...prev, room: updatedRoom, members: nextMembers };
+        });
+      } else if (msg.type === 'member_left' && msg.userId) {
+        queryClient.setQueryData<StudyRoomDetailView>(['study-room', roomId], (prev) => {
+          if (!prev) return prev;
+          const nextMembers = prev.members.filter((m) => m.userId !== msg.userId);
+          const updatedRoom = msg.room || { ...prev.room, currentParticipants: nextMembers.length };
+          return { ...prev, room: updatedRoom, members: nextMembers };
+        });
+      } else if (msg.type === 'collab_update' && msg.collab) {
+        queryClient.setQueryData<StudyRoomDetailView>(['study-room', roomId], (prev) =>
+          prev ? { ...prev, collab: msg.collab! } : prev,
+        );
+      } else if (msg.type === 'new_event' && msg.event) {
+        queryClient.setQueryData<StudyRoomDetailView>(['study-room', roomId], (prev) => {
+          if (!prev) return prev;
+          if (prev.recentEvents.some((e) => e.id === msg.event!.id)) return prev;
+          return { ...prev, recentEvents: [...prev.recentEvents, msg.event!] };
+        });
+      } else if (msg.type === 'room_closed') {
+        setIsRoomClosed(true);
+        setClosedReason(msg.reason || 'All participants left the room.');
+        queryClient.setQueryData<StudyRoomDetailView>(['study-room', roomId], (prev) =>
+          prev ? { ...prev, room: { ...prev.room, status: 'closed' } } : prev,
+        );
+      }
+    });
+
     return () => {
       clearTimeout(reconnectTimeout);
       es?.close();
+      unsubClient();
     };
   }, [roomId, profile.id, queryClient]);
 

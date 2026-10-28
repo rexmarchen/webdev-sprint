@@ -45,7 +45,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       },
       body: isForm ? body : body === undefined ? undefined : JSON.stringify(body),
     });
-  } catch {
+  } catch (err) {
+    if (path.startsWith('/study/')) {
+      const fallback = handleClientStudy<T>(path, options);
+      if (fallback !== null) return fallback;
+    }
     throw new ApiError(0, 'network_error', 'Could not reach the server. Check your connection and try again.');
   }
 
@@ -61,6 +65,12 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   if (!response.ok || parsed === null) {
+    // If backend is 404 or unmounted (e.g. static Vercel deployment), fall back to clientStudyStore
+    if (path.startsWith('/study/') && (response.status === 404 || parsed === null)) {
+      const fallback = handleClientStudy<T>(path, options);
+      if (fallback !== null) return fallback;
+    }
+
     const shape = parsed as Partial<ApiErrorShape> | null;
     const error = shape?.error;
     throw new ApiError(
@@ -75,6 +85,61 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   return parsed as T;
+}
+
+import { clientStudyStore } from './clientStudyStore';
+
+function handleClientStudy<T>(path: string, options: ApiOptions): T | null {
+  // GET /study/rooms
+  if (path.startsWith('/study/rooms') && (!options.method || options.method === 'GET')) {
+    const url = new URL(path, 'http://localhost');
+    const subject = url.searchParams.get('subject') || undefined;
+    const search = url.searchParams.get('search') || undefined;
+    const availability = url.searchParams.get('availability') || undefined;
+    return clientStudyStore.listRooms({ subject, search, availability }) as unknown as T;
+  }
+  // POST /study/rooms
+  if (path === '/study/rooms' && options.method === 'POST') {
+    return clientStudyStore.createRoom(options.body as any) as unknown as T;
+  }
+  // POST /study/rooms/:id/join
+  const joinMatch = path.match(/^\/study\/rooms\/([^/]+)\/join$/);
+  if (joinMatch && options.method === 'POST') {
+    try {
+      return clientStudyStore.joinRoom(joinMatch[1], (options.body as any) || {}) as unknown as T;
+    } catch (e: any) {
+      if (e.message === 'ROOM_FULL') throw new ApiError(409, 'room_full', 'This study room has reached its maximum capacity.');
+      if (e.message === 'ROOM_CLOSED') throw new ApiError(410, 'room_closed', 'This study room is no longer active.');
+      throw new ApiError(404, 'room_not_found', 'Room not found.');
+    }
+  }
+  // POST /study/rooms/:id/leave
+  const leaveMatch = path.match(/^\/study\/rooms\/([^/]+)\/leave$/);
+  if (leaveMatch && options.method === 'POST') {
+    return clientStudyStore.leaveRoom(leaveMatch[1], (options.body as any)?.userId || '') as unknown as T;
+  }
+  // GET /study/rooms/:id
+  const getMatch = path.match(/^\/study\/rooms\/([^/]+)$/);
+  if (getMatch && (!options.method || options.method === 'GET')) {
+    const detail = clientStudyStore.getRoomDetail(getMatch[1]);
+    if (!detail) throw new ApiError(404, 'room_not_found', 'Study room not found or has been closed.');
+    return detail as unknown as T;
+  }
+  // POST /study/rooms/:id/collab
+  const collabMatch = path.match(/^\/study\/rooms\/([^/]+)\/collab$/);
+  if (collabMatch && options.method === 'POST') {
+    return clientStudyStore.updateCollab(collabMatch[1], options.body as any) as unknown as T;
+  }
+  // POST /study/rooms/:id/events
+  const eventMatch = path.match(/^\/study\/rooms\/([^/]+)\/events$/);
+  if (eventMatch && options.method === 'POST') {
+    return clientStudyStore.addEvent(eventMatch[1], options.body as any) as unknown as T;
+  }
+  // POST /study/rooms/:id/heartbeat
+  if (path.includes('/heartbeat')) {
+    return { success: true } as unknown as T;
+  }
+  return null;
 }
 
 export function errorMessage(error: unknown): string {
