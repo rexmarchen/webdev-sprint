@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BrainCircle — Judge Demo: Room Capacity Enforcement</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #7c3aed;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3147;
+      border-radius: 12px;
+      padding: 22px;
+    }
+
+    .card h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #a5b4fc;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 14px;
+    }
+
+    /* Room Setup */
+    label {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      margin-top: 12px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px 12px;
+      background: #0f1117;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input:focus, select:focus { border-color: #7c3aed; }
+
+    .btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #6d28d9; }
+
+    .btn-join { background: #059669; color: #fff; }
+    .btn-join:hover:not(:disabled) { background: #047857; }
+
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+    .btn-ghost {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      margin-top: 8px;
+    }
+
+    .btn-ghost:hover { border-color: #7c3aed; color: #a5b4fc; }
+
+    /* Capacity bar */
+    .capacity-wrap { margin-top: 14px; }
+
+    .capacity-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    .bar-bg {
+      height: 10px;
+      background: #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease, background 0.3s;
+    }
+
+    /* Members list */
+    .members-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .member-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #0f1117;
+      border: 1px solid #2d3147;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .member-name { flex: 1; color: #e2e8f0; }
+
+    .tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+
+    .tag-host { background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed55; }
+    .tag-member { background: #05966922; color: #34d399; border: 1px solid #05966955; }
+
+    /* Log */
+    .log-wrap {
+      margin-top: 12px;
+      background: #0a0d14;
+      border: 1px solid #1e2130;
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 5px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .log-ts { color: #475569; flex-shrink: 0; }
+    .log-ok { color: #34d399; }
+    .log-warn { color: #fbbf24; }
+    .log-err { color: #f87171; }
+    .log-info { color: #60a5fa; }
+
+    /* Status Banner */
+    .status-banner {
+      text-align: center;
+      padding: 14px;
+      border-radius: 10px;
+      margin-top: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.3s;
+    }
+
+    .status-open { background: #05966920; border: 1px solid #059669; color: #34d399; }
+    .status-full { background: #dc262620; border: 1px solid #dc2626; color: #f87171; }
+    .status-none { background: #1e2130; border: 1px solid #2d3147; color: #64748b; }
+
+    /* Refused animation */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+
+    .shake { animation: shake 0.4s ease; }
+
+    /* Chip row */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+    .chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: 1px solid #334155;
+      background: #1e2130;
+      color: #94a3b8;
+      transition: all 0.15s;
+    }
+
+    .chip:hover { border-color: #7c3aed; color: #a5b4fc; }
+
+    .divider {
+      grid-column: 1 / -1;
+      border: none;
+      border-top: 1px dashed #2d3147;
+      margin: 4px 0;
+    }
+
+    .full-row { grid-column: 1 / -1; }
+
+    .refused-box {
+      background: #dc262618;
+      border: 1px solid #dc2626;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .refused-box.show { display: block; animation: shake 0.4s ease; }
+    .refused-box h3 { color: #f87171; font-size: 15px; margin-bottom: 6px; }
+    .refused-box p { color: #fca5a5; font-size: 12px; line-height: 1.6; }
+    .refused-code {
+      margin-top: 8px;
+      background: #0a0d14;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #f87171;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">🧑‍⚖️ Judge Demo Mode</div>
+  <h1>BrainCircle — Room Capacity Enforcement</h1>
+  <p class="subtitle">Create a room with a small limit, fill it up, then attempt one more join.<br>The system must refuse the extra person.</p>
+</div>
+
+<div class="grid">
+
+  <!-- STEP 1: Create Room -->
+  <div class="card">
+    <div class="step-label">Step 1</div>
+    <h2>🚀 Create a Room</h2>
+
+    <label>Room Name</label>
+    <input type="text" id="room-name" value="Judge Test Room — CS Finals" />
+
+    <label>Subject</label>
+    <input type="text" id="room-subject" value="Computer Science" />
+
+    <label>Max Participants (try 3 for quick demo)</label>
+    <input type="number" id="room-max" value="3" min="1" max="10" />
+
+    <label>Duration (minutes)</label>
+    <input type="number" id="room-duration" value="60" min="5" max="240" />
+
+    <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
+    <button class="btn btn-ghost" onclick="resetAll()">🔄 Reset Demo</button>
+  </div>
+
+  <!-- STEP 2: Room Status -->
+  <div class="card">
+    <div class="step-label">Step 2 — Live Room State</div>
+    <h2>📊 Capacity Meter</h2>
+
+    <div id="status-banner" class="status-banner status-none">No room created yet</div>
+
+    <div class="capacity-wrap">
+      <div class="capacity-label">
+        <span>Participants</span>
+        <span id="cap-text">— / —</span>
+      </div>
+      <div class="bar-bg">
+        <div class="bar-fill" id="cap-bar" style="width:0%; background:#7c3aed"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px; font-size:12px; color:#64748b;">Live members:</div>
+    <div class="members-list" id="members-list">
+      <div style="color:#475569; font-size:12px; padding:6px 0;">— waiting for room creation</div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Add Members -->
+  <div class="card">
+    <div class="step-label">Step 3 — Fill the Room</div>
+    <h2>👥 Add Participants</h2>
+
+    <label>Participant Name</label>
+    <input type="text" id="join-name" placeholder="Enter name or pick below" />
+
+    <div class="chip-row" id="quick-names"></div>
+
+    <button class="btn btn-join" id="btn-join" onclick="joinRoom()" disabled>Join Room</button>
+
+    <div id="refused-box" class="refused-box">
+      <h3>🚫 Join Refused — Room Full</h3>
+      <p>The room has reached its maximum participant limit. <strong>No additional members can join.</strong> This enforces the hackathon requirement.</p>
+      <div class="refused-code" id="refused-detail"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4: Event Log -->
+  <div class="card">
+    <div class="step-label">Step 4 — Audit Log</div>
+    <h2>📋 Real-Time Event Log</h2>
+    <div class="log-wrap" id="log"></div>
+  </div>
+
+  <!-- STEP 5: Full Row — Requirement Checklist -->
+  <div class="card full-row">
+    <div class="step-label">Requirements Checklist</div>
+    <h2>✅ Hackathon Requirement Verification</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:12px; margin-top:4px;" id="checklist">
+      <div class="req-item" data-key="create">⬜ Room can be created</div>
+      <div class="req-item" data-key="join">⬜ Members can join</div>
+      <div class="req-item" data-key="limit">⬜ Max limit is enforced</div>
+      <div class="req-item" data-key="refuse">⬜ Extra join is refused</div>
+      <div class="req-item" data-key="live">⬜ Participant count updates live</div>
+      <div class="req-item" data-key="expire">⬜ Room has expiry countdown</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── In-memory store (same logic as clientStudyStore.ts) ──────────────────────
+
+  let room = null;
+  let members = [];
+  const AVATARS = ['🧑‍💻','👩‍🔬','🧑‍🎓','👨‍🏫','👩‍💻','🧑‍🔬','👩‍🎓','🧑‍🏫','🦊','🐧'];
+  const COLORS  = ['#7c3aed','#059669','#d97706','#2563eb','#db2777','#0891b2','#65a30d','#dc2626'];
+
+  const DEMO_NAMES = ['Alice','Bob','Charlie','Diana','Ethan','Farida','George','Hannah','Ivan','Jaya'];
+
+  function ts() {
+    return new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+
+  function log(msg, cls = 'log-info') {
+    const el = document.getElementById('log');
+    const row = document.createElement('div');
+    row.className = 'log-entry';
+    row.innerHTML = `<span class="log-ts">[${ts()}]</span><span class="${cls}">${msg}</span>`;
+    el.appendChild(row);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function checkReq(key) {
+    document.querySelectorAll(`.req-item[data-key="${key}"]`).forEach(el => {
+      el.textContent = el.textContent.replace('⬜', '✅');
+      el.style.color = '#34d399';
+      el.style.fontWeight = '600';
+    });
+  }
+
+  function updateUI() {
+    if (!room) return;
+
+    const pct = Math.min(100, Math.round((members.length / room.maxParticipants) * 100));
+    const isFull = members.length >= room.maxParticipants;
+
+    // Capacity bar
+    document.getElementById('cap-text').textContent = `${members.length} / ${room.maxParticipants}`;
+    const bar = document.getElementById('cap-bar');
+    bar.style.width = pct + '%';
+    bar.style.background = isFull ? '#dc2626' : pct >= 70 ? '#f59e0b' : '#059669';
+
+    // Status banner
+    const banner = document.getElementById('status-banner');
+    if (isFull) {
+      banner.className = 'status-banner status-full';
+      banner.textContent = '🔒 ROOM FULL — New joins blocked';
+    } else {
+      banner.className = 'status-banner status-open';
+      const spotsLeft = room.maxParticipants - members.length;
+      banner.textContent = `🟢 Room Open — ${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} remaining`;
+    }
+
+    // Members list
+    const list = document.getElementById('members-list');
+    list.innerHTML = '';
+    members.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'member-row';
+      const color = COLORS[i % COLORS.length];
+      const avatar = AVATARS[i % AVATARS.length];
+      row.innerHTML = `
+        <div class="avatar" style="background:${color}22; border:1.5px solid ${color}66;">${avatar}</div>
+        <span class="member-name">${m.name}</span>
+        <span class="tag ${m.isHost ? 'tag-host' : 'tag-member'}">${m.isHost ? 'Host' : 'Member'}</span>
+      `;
+      list.appendChild(row);
+    });
+
+    // Join button
+    document.getElementById('btn-join').disabled = isFull;
+
+    if (isFull) checkReq('limit');
+    checkReq('live');
+  }
+
+  function createRoom() {
+    const name    = document.getElementById('room-name').value.trim() || 'Demo Room';
+    const subject = document.getElementById('room-subject').value.trim() || 'General';
+    const maxP    = parseInt(document.getElementById('room-max').value, 10) || 3;
+    const dur     = parseInt(document.getElementById('room-duration').value, 10) || 60;
+
+    room = {
+      id: 'demo_' + Math.random().toString(36).slice(2,8),
+      name,
+      subject,
+      maxParticipants: maxP,
+      durationMinutes: dur,
+      expiresAt: new Date(Date.now() + dur * 60_000).toISOString(),
+      createdAt: new Date().toISOString(),
+      status: 'active'
+    };
+
+    // Auto-add host
+    members = [{ name: 'You (Host)', isHost: true }];
+
+    log(`✔ Room created: "${name}" — max ${maxP} participants, ${dur}min countdown`, 'log-ok');
+    log(`  Room ID: ${room.id}`, 'log-info');
+    log(`  Expires: ${new Date(room.expiresAt).toLocaleTimeString()}`, 'log-info');
+
+    document.getElementById('btn-join').disabled = false;
+    document.getElementById('refused-box').classList.remove('show');
+
+    // Quick name chips
+    const chipRow = document.getElementById('quick-names');
+    chipRow.innerHTML = '';
+    DEMO_NAMES.slice(0,8).forEach(n => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = n;
+      chip.onclick = () => { document.getElementById('join-name').value = n; };
+      chipRow.appendChild(chip);
+    });
+
+    updateUI();
+    checkReq('create');
+    checkReq('expire');
+
+    // Start expiry countdown display
+    startExpiry();
+  }
+
+  function joinRoom() {
+    if (!room) { alert('Create a room first!'); return; }
+
+    const nameEl = document.getElementById('join-name');
+    const name = nameEl.value.trim() || `Student ${members.length + 1}`;
+
+    if (members.length >= room.maxParticipants) {
+      // REFUSE
+      const detail = `Error: ROOM_FULL\nRoom "${room.name}" is at capacity (${room.maxParticipants}/${room.maxParticipants}).\nParticipant "${name}" was refused entry.`;
+      document.getElementById('refused-detail').textContent = detail;
+      const box = document.getElementById('refused-box');
+      box.classList.add('show');
+      void box.offsetWidth; // reflow for re-animation
+      box.style.animation = 'none';
+      requestAnimationFrame(() => { box.style.animation = ''; });
+
+      log(`🚫 REFUSED: "${name}" — room at max capacity (${room.maxParticipants}/${room.maxParticipants})`, 'log-err');
+      checkReq('refuse');
+      return;
+    }
+
+    members.push({ name, isHost: false });
+    log(`✔ "${name}" joined the room (${members.length}/${room.maxParticipants})`, 'log-ok');
+    nameEl.value = '';
+
+    if (members.length > 1) checkReq('join');
+    if (members.length >= room.maxParticipants) {
+      log(`⚠ Room is now FULL — further joins will be blocked`, 'log-warn');
+    }
+
+    updateUI();
+  }
+
+  function resetAll() {
+    room = null;
+    members = [];
+    document.getElementById('cap-text').textContent = '— / —';
+    document.getElementById('cap-bar').style.width = '0%';
+    document.getElementById('members-list').innerHTML = '<div style="color:#475569; font-size:12px; padding:6px 0;">— waiting for room creation</div>';
+    document.getElementById('status-banner').className = 'status-banner status-none';
+    document.getElementById('status-banner').textContent = 'No room created yet';
+    document.getElementById('log').innerHTML = '';
+    document.getElementById('refused-box').classList.remove('show');
+    document.getElementById('btn-join').disabled = true;
+    document.getElementById('quick-names').innerHTML = '';
+    document.querySelectorAll('.req-item').forEach(el => {
+      el.textContent = el.textContent.replace('✅','⬜');
+      el.style.color = '';
+      el.style.fontWeight = '';
+    });
+    log('Demo reset. Create a room to begin.', 'log-info');
+  }
+
+  let expiryInterval = null;
+
+  function startExpiry() {
+    if (expiryInterval) clearInterval(expiryInterval);
+    expiryInterval = setInterval(() => {
+      if (!room) return;
+      const remaining = Math.max(0, Math.floor((new Date(room.expiresAt).getTime() - Date.now()) / 1000));
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      const tag = `⏳ ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')} remaining`;
+      const banner = document.getElementById('status-banner');
+      if (!banner.textContent.includes('FULL')) {
+        const spots = room.maxParticipants - members.length;
+        banner.textContent = `🟢 Room Open — ${spots} spot${spots !== 1?'s':''} remaining  |  ${tag}`;
+      }
+      if (remaining === 0) {
+        clearInterval(expiryInterval);
+        if (room) room.status = 'closed';
+        log('⌛ Room countdown expired — room auto-closed', 'log-warn');
+        const banner = document.getElementById('status-banner');
+        banner.className = 'status-banner status-full';
+        banner.textContent = '⌛ Room Expired — Closed automatically';
+        document.getElementById('btn-join').disabled = true;
+      }
+    }, 1000);
+  }
+
+  // Allow Enter key on join input
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('join-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') joinRoom();
+    });
+    log('Demo ready. Fill in room details and click "Create Room" to begin.', 'log-info');
+    log('Tip: Set Max Participants to 3 for a quick capacity-enforcement demo.', 'log-info');
+  });
+</script>
+</body>
+</html>
