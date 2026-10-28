@@ -229,8 +229,10 @@ export const clientStudyStore = {
     let room = store.rooms[roomId];
 
     if (!room) {
-      // Auto-provision room detail for direct shared links across different devices
+      // Auto-provision room detail ONLY for direct shared links from another device.
+      // This should never overwrite an existing room's expiresAt.
       const now = new Date().toISOString();
+      const provisionedDuration = 60; // minutes
       room = {
         id: roomId,
         name: 'Collaborative Study Circle',
@@ -243,8 +245,9 @@ export const clientStudyStore = {
         visibility: 'public',
         status: 'active',
         studyMode: 'pomodoro',
-        durationMinutes: 60,
-        expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        durationMinutes: provisionedDuration,
+        // Use expiresAt only for brand-new provisioned rooms — never overwrites existing rooms
+        expiresAt: new Date(Date.now() + provisionedDuration * 60_000).toISOString(),
         createdAt: now,
         updatedAt: now,
         closedAt: null,

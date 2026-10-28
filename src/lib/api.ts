@@ -105,11 +105,23 @@ function handleClientStudy<T>(path: string, options: ApiOptions): T | null {
   // POST /study/rooms/:id/join
   const joinMatch = path.match(/^\/study\/rooms\/([^/]+)\/join$/);
   if (joinMatch && options.method === 'POST') {
+    const roomId = joinMatch[1];
+    // If room not in store yet, load its detail first (auto-provision once), then join
     try {
-      return clientStudyStore.joinRoom(joinMatch[1], (options.body as any) || {}) as unknown as T;
+      return clientStudyStore.joinRoom(roomId, (options.body as any) || {}) as unknown as T;
     } catch (e: any) {
       if (e.message === 'ROOM_FULL') throw new ApiError(409, 'room_full', 'This study room has reached its maximum capacity.');
       if (e.message === 'ROOM_CLOSED') throw new ApiError(410, 'room_closed', 'This study room is no longer active.');
+      if (e.message === 'ROOM_NOT_FOUND') {
+        // Auto-provision then join — preserves any existing expiresAt via getRoomDetail
+        clientStudyStore.getRoomDetail(roomId);
+        try {
+          return clientStudyStore.joinRoom(roomId, (options.body as any) || {}) as unknown as T;
+        } catch (e2: any) {
+          if (e2.message === 'ROOM_FULL') throw new ApiError(409, 'room_full', 'This study room has reached its maximum capacity.');
+          if (e2.message === 'ROOM_CLOSED') throw new ApiError(410, 'room_closed', 'This study room is no longer active.');
+        }
+      }
       throw new ApiError(404, 'room_not_found', 'Room not found.');
     }
   }
@@ -130,8 +142,11 @@ function handleClientStudy<T>(path: string, options: ApiOptions): T | null {
   if (collabMatch && options.method === 'POST') {
     return clientStudyStore.updateCollab(collabMatch[1], options.body as any) as unknown as T;
   }
-  // POST /study/rooms/:id/events
-  const eventMatch = path.match(/^\/study\/rooms\/([^/]+)\/events$/);
+  // POST /study/rooms/:id/event
+  // Keep the browser-only fallback aligned with the real API route.  Static
+  // deployments still cannot share this state between devices, but messages
+  // should work in the same browser instead of failing with a 404.
+  const eventMatch = path.match(/^\/study\/rooms\/([^/]+)\/event$/);
   if (eventMatch && options.method === 'POST') {
     return clientStudyStore.addEvent(eventMatch[1], options.body as any) as unknown as T;
   }
